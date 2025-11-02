@@ -3,6 +3,7 @@ from typing import Tuple
 import numpy as np
 import numpy.random as rd
 import torch as th
+import time
 
 ARY = np.ndarray
 TEN = th.Tensor
@@ -123,6 +124,7 @@ class PointChasingVecEnv:
         return state, dict()
 
     def reset_env_i(self, i: int):
+        th.manual_seed(i)  # 为每个环境设置不同的随机种子
         self.p0s[i] = th.normal(0, 1, size=(self.dim,))
         self.v0s[i] = th.zeros((self.dim,))
         self.p1s[i] = th.normal(-self.init_distance, 1, size=(self.dim,))
@@ -216,7 +218,7 @@ def check_chasing_env():
     reward_sum = 0.0  # episode return
     reward_sum_list = []
 
-    state = env.reset()
+    state, _ = env.reset()
     for _ in range(env.max_step * 4):
         action = env.get_action(state)
         state, reward, terminal, truncate, _ = env.step(action)
@@ -226,7 +228,7 @@ def check_chasing_env():
             print(f"{env.distance:8.4f}    {action.round(2)}")
             reward_sum_list.append(reward_sum)
             reward_sum = 0.0
-            state = env.reset()
+            state, _ = env.reset()
 
     print("len: ", len(reward_sum_list))
     print("mean:", np.mean(reward_sum_list))
@@ -243,7 +245,7 @@ def check_chasing_vec_env():
                            [],
                        ] * env.num_envs
 
-    states = env.reset()
+    states, _ = env.reset()
     for _ in range(env.max_step * 4):
         actions = env.get_action(states)
         states, rewards, terminal, truncate, _ = env.step(actions)
@@ -264,5 +266,20 @@ def check_chasing_vec_env():
 
 
 if __name__ == "__main__":
-    check_chasing_env()
+
+    start_time = time.perf_counter()
+
+    # # 统计 check_chasing_env() 的运行时长
+    # t0 = time.perf_counter()
+    # check_chasing_env()
+    # t1 = time.perf_counter()
+    # print(f"check_chasing_env elapsed: {t1 - t0:.4f} seconds")
+
+    # 统计 check_chasing_vec_env() 的运行时长
+    t2 = time.perf_counter()
     check_chasing_vec_env()
+    t3 = time.perf_counter()
+    print(f"check_chasing_vec_env elapsed: {t3 - t2:.4f} seconds")
+
+    elapsed = time.perf_counter() - start_time
+    print(f"Elapsed time: {elapsed:.4f} seconds")
