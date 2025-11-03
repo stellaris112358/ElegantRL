@@ -89,7 +89,8 @@ class ChasingVecEnv:
         :param actions: [tensor] actions.shape == (env_num, action_dim) flattened OR (env_num, n_chasers, dim)
         :return: next_states [tensor] next_states.shape == (env_num, state_dim)
         :return: rewards [tensor] rewards == (env_num, )
-        :return: dones [tensor] dones == (env_num, ), done = 1. if done else 0.
+        :return: terminal [tensor] terminal == (env_num, ), terminal = 1. if terminated (captured) else 0.
+        :return: truncate [tensor] truncate == (env_num, ), True if truncated by max_step.
         :return: None [None or dict]
         """
         # accept flattened input or already shaped
@@ -126,19 +127,27 @@ class ChasingVecEnv:
         rewards = self.distances - distances - action_penalty * 0.02
         self.distances = distances
 
-        """done"""
+        """done / terminal / truncate"""
         self.cur_steps += 1  # array
-        # done if any chaser is within threshold (using min distance)
-        dones = (distances < self.dim) | (self.cur_steps == self.max_step)
+
+        # terminated if any chaser is within threshold (capture)
+        terminal = distances < self.dim  # bool tensor
+        # truncated if reach max step
+        truncate = (self.cur_steps == self.max_step)  # bool tensor
+
+        # reset environments that are either terminated or truncated
         for env_i in range(self.env_num):
-            if dones[env_i]:
+            if terminal[env_i] or truncate[env_i]:
                 self.reset_env_i(env_i)
-        dones = dones.type(torch.float32)
+
+        # match PointChasingVecEnv style: terminal as float32, truncate as bool
+        terminal = terminal.type(torch.float32)
+        truncate = truncate.type(torch.bool)
 
         """next_state"""
         next_states = self.get_state()
 
-        return next_states, rewards, dones, None
+        return next_states, rewards, terminal, truncate, None
 
     def get_state(self):
         # flatten chasers' positions/velocities
@@ -164,18 +173,20 @@ class ChasingVecEnv:
 
 def check_chasing_vec_env():
     env = ChasingVecEnv(dim=2, env_num=4, n_chasers=3, device_id=0)
-    total_steps = env.max_step * 4
+    total_steps = env.max_step * 4  ## 4096步
     print("Env num:", env.env_num, "n_chasers:", env.n_chasers)
 
     reward_sums = [0.0] * env.env_num  # episode returns
     reward_sums_list = [[] for _ in range(env.env_num)]
 
     states = env.reset()
-    for _ in range(total_steps):   ## 4096步
+    for _ in range(total_steps):   
         actions = env.get_action(states, n_chasers=env.n_chasers, dim=env.dim)
-        states, rewards, dones, _ = env.step(actions)
-        # print current steps for debugging (tensor)
-        # print("Steps:", env.cur_steps)
+        states, rewards, terminal, truncate, _ = env.step(actions)
+
+        # combine terminal and truncate for bookkeeping
+        dones = torch.logical_or(terminal.type(torch.bool), truncate)
+
         for env_i in range(env.env_num):
             reward_sums[env_i] += rewards[env_i].item()
 
