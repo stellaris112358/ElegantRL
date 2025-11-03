@@ -138,7 +138,7 @@ class PointChasingVecEnv:
 
 
 def check_chasing_vec_env():
-    env = PointChasingVecEnv(dim=2, env_num=2, sim_device=0)
+    env = PointChasingVecEnv(dim=2, env_num=64, sim_device=0)
 
     reward_sums = [0.0] * env.num_envs
     reward_sums_list = [[] for _ in range(env.num_envs)]
