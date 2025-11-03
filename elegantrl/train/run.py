@@ -123,11 +123,15 @@ def train_agent_single_process(args: Config):
 
         th.set_grad_enabled(True)
         logging_tuple = agent.update_net(buffer)
-        logging_tuple = (*logging_tuple, agent.explore_rate, show_str)
+        if hasattr(agent, "explore_rate"):
+            logging_tuple = (*logging_tuple, agent.explore_rate, show_str)
+        else:
+            logging_tuple = (*logging_tuple, show_str)
         th.set_grad_enabled(False)
 
         evaluator.evaluate_and_save(actor=agent.act, steps=horizon_len, exp_r=exp_r, logging_tuple=logging_tuple)
         if_train = (evaluator.total_step <= break_step) and (not os.path.exists(f"{cwd}/stop"))
+
 
     print(f'| UsedTime: {time.time() - evaluator.start_time:>7.0f} | SavedDir: {cwd}', flush=True)
 
