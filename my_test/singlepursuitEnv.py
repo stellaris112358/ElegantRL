@@ -81,17 +81,6 @@ class PointChasingVecEnv:
 
         self.cur_steps[i] = 0
 
-    # def reset(self, **_kwargs) -> Tuple[TEN, dict]:
-
-    #     self.p0s = th.normal(0, 1, size=(self.num_envs, self.dim), device=self.device)
-    #     self.v0s = th.zeros((self.num_envs, self.dim), device=self.device)
-    #     self.p1s = th.normal(-self.init_distance, 1, size=(self.num_envs, self.dim), device=self.device)
-    #     self.v1s = th.zeros((self.num_envs, self.dim), device=self.device)
-    #     self.cur_steps = th.zeros(self.num_envs, device=self.device)
-    #     self.distances = ((self.p0s - self.p1s)** 2).sum(dim=1) **0.5
-
-    #     return self.get_state(), dict()
-
     def step(self, actions: TEN) -> Tuple[TEN, TEN, TEN, TEN, dict]:
         """
         Vectorized step.
@@ -149,10 +138,8 @@ class PointChasingVecEnv:
 
 
 def check_chasing_vec_env():
-    env = PointChasingVecEnv(dim=2, env_num=64, sim_device=0)
+    env = PointChasingVecEnv(dim=2, env_num=128, sim_device=0)
 
-    # reward_sums = [0.0] * env.num_envs
-    # reward_sums_list = [[] for _ in range(env.num_envs)]
     # 初始化时将 reward_sums 改为张量（而非列表），与环境同设备，提升累加效率
     reward_sums = th.zeros(env.num_envs, device=env.device, dtype=th.float32)
     reward_sums_list = [[] for _ in range(env.num_envs)]  # 保持原结构，存储每个环境的完整轨迹奖励
@@ -180,14 +167,6 @@ def check_chasing_vec_env():
                 reward_sums_list[env_i].append(done_rewards[idx])
             # 向量化重置 done 环境的累积奖励
             reward_sums[done_indices] = 0.0  # 直接对张量切片赋值，效率远高于循环
-
-        # for env_i in range(env.num_envs):
-        #     reward_sums[env_i] += rewards[env_i].item()
-
-        #     if dones[env_i]:
-        #         # print(f"{env.distances[env_i].item():8.4f}    {actions[env_i].detach().cpu().numpy().round(2)}")
-        #         reward_sums_list[env_i].append(reward_sums[env_i])
-        #         reward_sums[env_i] = 0.0
 
         global_step += env.num_envs
         
